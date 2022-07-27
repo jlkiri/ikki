@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf};
+
 
 use bollard::Docker;
 use miette::IntoDiagnostic;
@@ -7,8 +7,8 @@ use tracing::debug;
 use unison_config::UnisonConfig;
 
 use crate::{
-    builder::{BuildResult, BuilderHandle},
-    docker::{self, DockerError},
+    builder::{BuilderHandle},
+    docker::{DockerError},
     docker_config::*,
     supervisor::{ImageSourceLocations, Mode, SupervisorHandle},
 };
@@ -17,7 +17,7 @@ pub async fn explain(config: UnisonConfig) -> miette::Result<()> {
     let build_options = config
         .images()
         .iter()
-        .map(|img| build_options(img))
+        .map(build_options)
         .collect::<Result<Vec<BuildOptions>, DockerError>>()
         .into_diagnostic()?;
 
@@ -29,7 +29,7 @@ pub async fn explain(config: UnisonConfig) -> miette::Result<()> {
 
     let run_options = config
         .images()
-        .into_iter()
+        .iter()
         .cloned()
         .filter(|img| img.service.is_some())
         .map(|img| (img.name, img.service.unwrap()))

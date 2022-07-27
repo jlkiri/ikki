@@ -1,20 +1,17 @@
 use crate::docker_config::*;
 use bollard::{
-    container::{Config, CreateContainerOptions, NetworkingConfig},
+    container::{CreateContainerOptions},
     image::{BuildImageOptions, CreateImageOptions},
-    models::{HostConfig, Port, PortBinding},
     Docker,
 };
 use futures_util::TryStreamExt;
 use std::{
-    collections::HashMap,
     io::{self, Write},
-    path::PathBuf,
 };
 use tar::Builder;
 use thiserror::Error;
 use tokio::task;
-use tracing::{debug, info};
+use tracing::{debug};
 use unison_config::*;
 
 fn clear_line() {
@@ -86,8 +83,7 @@ pub async fn pull_image(docker: Docker, image: Image) -> Result<(), DockerError>
     let image_list = docker.list_images::<String>(None).await?;
     if image_list
         .iter()
-        .find(|img| img.repo_tags.iter().any(|tag| tag.contains(&image.name)))
-        .is_some()
+        .any(|img| img.repo_tags.iter().any(|tag| tag.contains(&image.name)))
     {
         debug!("image `{}` already exists, skipping", image.name);
         println!("Image `{}` already exists and/or is up-to-date", image.name);
@@ -139,8 +135,8 @@ pub async fn run(docker: Docker, name: String, service: Service) -> Result<Strin
 }
 
 pub async fn remove_container(docker: Docker, id: &str) -> Result<(), DockerError> {
-    let _ = docker.stop_container(id, None).await?;
-    let _ = docker.remove_container(id, None).await?;
+    docker.stop_container(id, None).await?;
+    docker.remove_container(id, None).await?;
 
     Ok(())
 }

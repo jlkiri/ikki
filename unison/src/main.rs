@@ -1,15 +1,14 @@
 use crate::{
     args::*,
-    builder::{BuildResult, BuilderHandle},
 };
-use bollard::Docker;
+
 use clap::Parser;
 use docker::DockerError;
-use miette::{self, Diagnostic, IntoDiagnostic};
+use miette::{self, Diagnostic};
 use std::path::Path;
-use supervisor::SupervisorHandle;
+
 use thiserror::Error;
-use tokio::{fs, signal};
+use tokio::{fs};
 use tracing::{debug, error};
 use tracing_subscriber::EnvFilter;
 use unison_config::*;

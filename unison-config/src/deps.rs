@@ -1,4 +1,4 @@
-use crate::UnisonConfigError;
+
 use kdl::{KdlDocument, KdlNode};
 use toposort::Dag;
 

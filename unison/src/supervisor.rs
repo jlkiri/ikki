@@ -1,13 +1,13 @@
-use bollard::Docker;
-use notify::DebouncedEvent;
+
+
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf};
 use tokio::sync::mpsc;
 use tokio::task;
 use tokio::task::JoinHandle;
 use tracing::debug;
 
-use crate::builder::{BuildResult, BuilderHandle};
+use crate::builder::{BuilderHandle};
 use crate::listeners::FsEventListenerHandle;
 use crate::UnisonError;
 
@@ -94,17 +94,17 @@ async fn run_supervisor(mut supervisor: Supervisor, mode: Mode) {
         match msg {
             Event::Shutdown => {
                 if let Err(e) = supervisor.builder_handle.stop_all().await {
-                    println!("Unison error: {}", e.to_string())
+                    println!("Unison error: {}", e)
                 }
             }
             Event::SourceChanged(image_name) => {
                 if let Err(e) = supervisor.builder_handle.build(image_name.clone()).await {
-                    println!("Unison error: {}", e.to_string())
+                    println!("Unison error: {}", e)
                 }
 
                 if let Mode::Run = mode {
                     if let Err(e) = supervisor.builder_handle.run(image_name).await {
-                        println!("Unison error: {}", e.to_string())
+                        println!("Unison error: {}", e)
                     }
                 }
             }

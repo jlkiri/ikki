@@ -48,12 +48,12 @@ pub fn build_options(image: &Image) -> Result<BuildOptions, DockerError> {
 type ContainerPortConfig = String;
 
 fn parse_port_binding(binding: String) -> (ContainerPortConfig, PortBinding) {
-    let (host_port, container_address) = binding.split_once(":").unwrap_or(("", &binding));
+    let (host_port, container_address) = binding.split_once(':').unwrap_or(("", &binding));
     let (container_port, protocol) = container_address
-        .split_once("/")
+        .split_once('/')
         .unwrap_or((container_address, "tcp"));
 
-    let (host_ip, host_port) = if host_port == "" {
+    let (host_ip, host_port) = if host_port.is_empty() {
         (None, None)
     } else {
         (Some("127.0.0.1".to_string()), Some(host_port.to_string()))

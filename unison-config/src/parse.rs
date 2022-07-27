@@ -1,6 +1,6 @@
 use crate::{deps::parse_deps, parse_image_config, Image, ImageConfig};
 use kdl::{KdlDocument, KdlError};
-use toposort::{Dag, Toposort};
+use toposort::{Toposort};
 
 use thiserror::Error;
 

@@ -1,4 +1,4 @@
-use tracing_subscriber::fmt::format;
+
 
 use crate::docker_config::{BuildOptions, RunOptions};
 
@@ -53,7 +53,7 @@ impl RunOptions {
             s.push_str(&publish);
         }
 
-        s.push_str(" ");
+        s.push(' ');
         s.push_str(&self.image);
 
         s

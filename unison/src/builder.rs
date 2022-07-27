@@ -1,4 +1,4 @@
-use bollard::{image, Docker};
+use bollard::{Docker};
 use futures::prelude::*;
 use futures::stream::FuturesUnordered;
 use tokio::sync::oneshot::Sender;

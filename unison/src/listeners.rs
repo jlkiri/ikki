@@ -1,8 +1,8 @@
-use std::path::Path;
-use std::path::PathBuf;
+
+
 use std::time::Duration;
 
-use bollard::Docker;
+
 use futures::prelude::*;
 use notify::DebouncedEvent;
 use notify::Watcher;
@@ -13,7 +13,7 @@ use tokio::sync::oneshot;
 use tokio::task;
 use tokio::task::JoinHandle;
 use tracing::debug;
-use unison_config::Image;
+
 
 use crate::supervisor::Event;
 use crate::supervisor::EventSender;
