@@ -1,5 +1,3 @@
-
-
 use crate::docker_config::{BuildOptions, RunOptions};
 
 impl BuildOptions {
@@ -38,7 +36,7 @@ impl RunOptions {
         s.push_str("docker run");
 
         // name
-        let name = format!(" --name {}", self.name);
+        let name = format!(" --name {}", self.container_name);
         s.push_str(&name);
 
         // env
@@ -54,7 +52,7 @@ impl RunOptions {
         }
 
         s.push(' ');
-        s.push_str(&self.image);
+        s.push_str(&self.image_name);
 
         s
     }

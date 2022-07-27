@@ -1,5 +1,3 @@
-
-
 use bollard::Docker;
 use miette::IntoDiagnostic;
 use tokio::signal;
@@ -7,8 +5,8 @@ use tracing::debug;
 use unison_config::UnisonConfig;
 
 use crate::{
-    builder::{BuilderHandle},
-    docker::{DockerError},
+    builder::BuilderHandle,
+    docker::DockerError,
     docker_config::*,
     supervisor::{ImageSourceLocations, Mode, SupervisorHandle},
 };
@@ -32,7 +30,13 @@ pub async fn explain(config: UnisonConfig) -> miette::Result<()> {
         .iter()
         .cloned()
         .filter(|img| img.service.is_some())
-        .map(|img| (img.name, img.service.unwrap()))
+        .map(|img| {
+            (
+                img.name.clone(),
+                img.pull.unwrap_or(img.name),
+                img.service.unwrap(),
+            )
+        })
         .map(create_run_options)
         .collect::<Vec<RunOptions>>();
 

@@ -18,10 +18,10 @@ pub struct BuildOptions {
 
 #[derive(Debug)]
 pub struct RunOptions {
-    pub name: String,
+    pub container_name: String,
+    pub image_name: String,
     pub env: Vec<String>,
     pub ports: Vec<String>,
-    pub image: String,
 }
 
 pub fn build_options(image: &Image) -> Result<BuildOptions, DockerError> {
@@ -80,21 +80,27 @@ fn create_env_config(env: Vec<KeyValue>) -> Vec<String> {
         .collect()
 }
 
-pub fn create_run_options((name, service): (String, Service)) -> RunOptions {
+pub fn create_run_options(
+    (container_name, image_name, service): (String, String, Service),
+) -> RunOptions {
     RunOptions {
-        name: name.clone(),
+        container_name: container_name,
         env: create_env_config(service.env),
         ports: service.ports.unwrap_or_default(),
-        image: name,
+        image_name: image_name,
     }
 }
 
-pub fn create_container_config(name: &str, service: Service) -> Config<String> {
+pub fn create_container_config(
+    container_name: &str,
+    image_name: &str,
+    service: Service,
+) -> Config<String> {
     let mut config = Config::default();
 
-    let options = create_run_options((name.to_string(), service));
+    let options = create_run_options((container_name.to_string(), image_name.to_string(), service));
 
-    config.image = Some(options.name);
+    config.image = Some(options.image_name);
     config.host_config = Some(HostConfig {
         port_bindings: Some(create_ports_config(options.ports)),
         ..Default::default()

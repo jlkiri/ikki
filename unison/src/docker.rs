@@ -124,7 +124,7 @@ pub async fn run(
         name: container_name.to_string(),
     };
 
-    let config = create_container_config(&image_name, service);
+    let config = create_container_config(&container_name, &image_name, service);
 
     let id = docker.create_container(Some(options), config).await?.id;
     println!("Created container `{}`", container_name);
