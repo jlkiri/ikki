@@ -1,0 +1,4 @@
+[submodule "unison-config/kdl-schema"]
+	path = unison-config/kdl-schema
+	url = https://github.com/jlkiri/kdl-schema.git
+	branch = missing-nodes-and-props

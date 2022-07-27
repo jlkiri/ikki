@@ -1,0 +1,93 @@
+document {
+    info {
+        title "Unison configuration schema" lang="en"
+        author "Kirill Vasiltsov" {
+            link "https://github.com/jlkiri"
+        }
+    }
+
+    node "images" description="Images (and optionally) services to be built" {
+        max 1
+        children {
+            node {
+                prop "path" {
+                    required false
+                    type "string"
+                }
+
+                prop "file" {
+                    required false
+                    type "string"
+                }
+
+                prop "pull" {
+                    required false
+                    type "string"
+                }
+
+                prop "output" {
+                    required false
+                    type "string"
+                }
+
+                children {
+                    node "build-args" {
+                        min 0
+                        max 1
+                        children {
+                            node {
+                                value {
+                                    max 1
+                                    type "string"
+                                }
+                            }
+                        }
+                    }
+
+                    node "secret" {
+                        min 0
+                        max 1
+                        prop "id" {
+                            required true
+                            type "string"
+                        }
+
+                        prop "src" {
+                            required true
+                            type "string"
+                        }
+                    }
+
+                    node "service" {
+                        min 0
+                        max 1
+                        children {
+                            node "ports" {
+                                min 0
+                                max 1
+                                value {
+                                    type "string"
+                                }
+                            }
+
+                            node "env" {
+                                min 0
+                                max 1
+                                children {
+                                    node {
+                                        value {
+                                            max 1
+                                            type "string"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    other-nodes-allowed true
+}

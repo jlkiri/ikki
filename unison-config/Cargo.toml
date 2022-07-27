@@ -1,0 +1,21 @@
+[package]
+name = "unison-config"
+version = "0.1.0"
+edition = "2021"
+authors = ["jlkiri / Kirill Vasiltsov"]
+description = "Unison configuration parser"
+repository = "https://github.com/jlkiri/buildgraph.git"
+license = "MIT"
+keywords = ["unison"]
+categories = ["parsers"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+camino = "1.0.9"
+kdl = "4.3.0"
+kdl-schema = { path = "./kdl-schema" }
+toposort = { path = "../toposort" }
+knuffel = "2.0.0"
+miette = "5.1.0"
+thiserror = "1.0.31"

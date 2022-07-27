@@ -1,0 +1,18 @@
+dependencies {
+    apple {
+        watermelon {
+            mango
+        }
+        melon
+    }
+    banana {
+        papaiya 
+        orange {
+            tangerine
+            grape
+            peach {
+                mango
+            }
+        }
+    }
+}

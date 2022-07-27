@@ -1,0 +1,9 @@
+set shell := ["nu", "-c"]
+
+RUST_LOG := env_var_or_default("RUST_LOG", "info")
+
+exec-dbg cmd:
+    let-env RUST_LOG = "{{RUST_LOG}},unison=debug"; cargo run -- {{cmd}}
+
+exec cmd:
+    let-env RUST_LOG = "{{RUST_LOG}}"; cargo run -- {{cmd}}
