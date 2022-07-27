@@ -1,1 +1,1 @@
-# Unison configuration parser
+# Ikki configuration parser
