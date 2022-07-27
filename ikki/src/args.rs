@@ -1,7 +1,7 @@
 use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
 
-const DEFAULT_CONFIG_FILE: &str = "unison.kdl";
+const DEFAULT_CONFIG_FILE: &str = "ikki.kdl";
 
 /// Unison orchestrates Docker image builds and container launches
 #[derive(Parser, Debug)]

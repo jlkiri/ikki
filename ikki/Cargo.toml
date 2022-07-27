@@ -1,18 +1,18 @@
 [package]
-name = "unison"
+name = "ikki"
 version = "0.1.0"
 edition = "2021"
 authors = ["jlkiri / Kirill Vasiltsov"]
-description = "Unison container orchestrator for Docker"
-repository = "https://github.com/jlkiri/unison.git"
+description = "Ikki container orchestrator for Docker"
+repository = "https://github.com/jlkiri/ikki.git"
 license = "MIT"
-keywords = ["unison"]
+keywords = ["ikki"]
 categories = ["command-line-utilities", "development-tools", "virtualization"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-unison-config = { path = "../unison-config", version = "0.1.1" }
+ikki-config = { path = "../ikki-config", version = "0.1.1" }
 miette = { version = "4", features = ["fancy"] }
 bollard = "0.13.0"
 tokio = { version = "1.19.2", features = ["full"] }

@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 authors = ["jlkiri / Kirill Vasiltsov"]
 description = "Topological sorting"
-repository = "https://github.com/jlkiri/unison"
+repository = "https://github.com/jlkiri/ikki"
 license = "MIT"
 keywords = ["sorting", "toposort"]
 

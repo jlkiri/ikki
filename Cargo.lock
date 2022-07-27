@@ -569,6 +569,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "ikki"
+version = "0.1.0"
+dependencies = [
+ "bollard",
+ "clap 3.2.8",
+ "crossterm",
+ "futures",
+ "futures-util",
+ "hyper",
+ "ikki-config",
+ "miette 4.7.1",
+ "multimap",
+ "notify",
+ "structopt",
+ "tar",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "ikki-config"
+version = "0.1.1"
+dependencies = [
+ "camino",
+ "kdl",
+ "knuffel",
+ "miette 5.1.0",
+ "thiserror",
+ "toposort",
+]
+
+[[package]]
 name = "indexmap"
 version = "1.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1567,40 +1601,6 @@ name = "unicode-width"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3ed742d4ea2bd1176e236172c8429aaf54486e7ac098db29ffe6529e0ce50973"
-
-[[package]]
-name = "unison"
-version = "0.1.0"
-dependencies = [
- "bollard",
- "clap 3.2.8",
- "crossterm",
- "futures",
- "futures-util",
- "hyper",
- "miette 4.7.1",
- "multimap",
- "notify",
- "structopt",
- "tar",
- "thiserror",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "unison-config",
-]
-
-[[package]]
-name = "unison-config"
-version = "0.1.1"
-dependencies = [
- "camino",
- "kdl",
- "knuffel",
- "miette 5.1.0",
- "thiserror",
- "toposort",
-]
 
 [[package]]
 name = "url"

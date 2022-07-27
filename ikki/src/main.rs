@@ -1,17 +1,15 @@
-use crate::{
-    args::*,
-};
+use crate::args::*;
 
 use clap::Parser;
 use docker::DockerError;
 use miette::{self, Diagnostic};
 use std::path::Path;
 
+use ikki_config::*;
 use thiserror::Error;
-use tokio::{fs};
+use tokio::fs;
 use tracing::{debug, error};
 use tracing_subscriber::EnvFilter;
-use unison_config::*;
 
 mod args;
 mod builder;
@@ -33,7 +31,7 @@ pub enum UnisonError {
     #[error("No Unison configuration file found at: {0}")]
     NoConfig(String),
     #[error("Unison configuration error")]
-    Config(#[from] unison_config::UnisonConfigError),
+    Config(#[from] ikki_config::UnisonConfigError),
     #[error("Docker build failed")]
     Build(#[from] DockerError),
     #[error("Unexpected error: {0}")]
@@ -58,7 +56,7 @@ where
     let input = fs::read_to_string(&file)
         .await
         .or(Err(UnisonError::NoConfig(path.to_string())))?;
-    let config: UnisonConfig = unison_config::parse(&path, &input)?;
+    let config: UnisonConfig = ikki_config::parse(&path, &input)?;
     Ok(config)
 }
 

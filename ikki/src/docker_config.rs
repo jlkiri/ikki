@@ -4,7 +4,7 @@ use bollard::{
     container::Config,
     models::{HostConfig, PortBinding},
 };
-use unison_config::{Image, KeyValue, Service};
+use ikki_config::{Image, KeyValue, Service};
 
 use crate::docker::DockerError;
 
