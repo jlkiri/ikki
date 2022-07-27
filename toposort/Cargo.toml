@@ -2,6 +2,11 @@
 name = "toposort"
 version = "0.1.0"
 edition = "2021"
+authors = ["jlkiri / Kirill Vasiltsov"]
+description = "Topological sorting"
+repository = "https://github.com/jlkiri/unison"
+license = "MIT"
+keywords = ["topological sort", "toposort"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
