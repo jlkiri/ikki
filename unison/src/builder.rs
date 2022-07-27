@@ -1,4 +1,4 @@
-use bollard::{Docker};
+use bollard::Docker;
 use futures::prelude::*;
 use futures::stream::FuturesUnordered;
 use tokio::sync::oneshot::Sender;
@@ -175,7 +175,13 @@ impl Builder {
                     .cloned()
                     .ok_or(UnisonError::NoSuchImage(image_name))?;
                 if let Some(service) = image.service {
-                    let job = docker::run(self.client.clone(), image.name, service);
+                    let image_name = if let Some(name) = image.pull {
+                        name
+                    } else {
+                        image.name.clone()
+                    };
+                    let container_name = image.name;
+                    let job = docker::run(self.client.clone(), container_name, image_name, service);
                     queue.push(job);
                 }
             }

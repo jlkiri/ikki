@@ -1,17 +1,15 @@
 use crate::docker_config::*;
 use bollard::{
-    container::{CreateContainerOptions},
+    container::CreateContainerOptions,
     image::{BuildImageOptions, CreateImageOptions},
     Docker,
 };
 use futures_util::TryStreamExt;
-use std::{
-    io::{self, Write},
-};
+use std::io::{self, Write};
 use tar::Builder;
 use thiserror::Error;
 use tokio::task;
-use tracing::{debug};
+use tracing::debug;
 use unison_config::*;
 
 fn clear_line() {
@@ -73,32 +71,33 @@ pub async fn build_image(docker: Docker, image: Image) -> Result<(), DockerError
 }
 
 pub async fn pull_image(docker: Docker, image: Image) -> Result<(), DockerError> {
-    debug!("pulling {}...", image.name);
+    let name = image.pull.unwrap_or("<unknown>".into());
+    debug!("pulling {}...", name);
 
     println!(
         "Checking if image `{}` needs to be built or pulled from registry...",
-        image.name
+        name
     );
 
     let image_list = docker.list_images::<String>(None).await?;
     if image_list
         .iter()
-        .any(|img| img.repo_tags.iter().any(|tag| tag.contains(&image.name)))
+        .any(|img| img.repo_tags.iter().any(|tag| tag.contains(&name)))
     {
-        debug!("image `{}` already exists, skipping", image.name);
-        println!("Image `{}` already exists and/or is up-to-date", image.name);
+        debug!("image `{}` already exists, skipping", name);
+        println!("Image `{}` already exists and/or is up-to-date", name);
         return Ok(());
     }
 
     println!(
         "Image `{}` not found locally. Pulling from registry...",
-        image.name
+        name
     );
 
     docker
         .create_image(
             Some(CreateImageOptions {
-                from_image: image.pull.clone().unwrap_or_default(),
+                from_image: name.clone(),
                 ..Default::default()
             }),
             None,
@@ -107,29 +106,34 @@ pub async fn pull_image(docker: Docker, image: Image) -> Result<(), DockerError>
         .try_collect::<Vec<_>>()
         .await?;
 
-    println!("Finished pulling `{}` from registry", image.name);
+    println!("Finished pulling `{}` from registry", name);
 
     Ok(())
 }
 
-pub async fn run(docker: Docker, name: String, service: Service) -> Result<String, DockerError> {
-    debug!("starting {}...", name);
-    println!("Creating container `{}`...", name);
+pub async fn run(
+    docker: Docker,
+    container_name: String,
+    image_name: String,
+    service: Service,
+) -> Result<String, DockerError> {
+    debug!("starting {}...", container_name);
+    println!("Creating container `{}`...", container_name);
 
     let options = CreateContainerOptions {
-        name: name.to_string(),
+        name: container_name.to_string(),
     };
 
-    let config = create_container_config(&name, service);
+    let config = create_container_config(&image_name, service);
 
     let id = docker.create_container(Some(options), config).await?.id;
-    println!("Created container `{}`", name);
+    println!("Created container `{}`", container_name);
 
-    println!("Starting container `{}`...", name);
+    println!("Starting container `{}`...", container_name);
     docker.start_container::<String>(&id, None).await?;
-    println!("Started container `{}` ({})", name, id);
+    println!("Started container `{}` ({})", container_name, id);
 
-    debug!("started container {} ({})", name, id);
+    debug!("started container {} ({})", container_name, id);
 
     Ok(id)
 }

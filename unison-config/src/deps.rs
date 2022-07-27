@@ -1,4 +1,3 @@
-
 use kdl::{KdlDocument, KdlNode};
 use toposort::Dag;
 
@@ -27,7 +26,7 @@ pub fn parse_deps(dependencies_node: &KdlNode) -> Dag<String> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parse::parse;
+    use crate::{parse::parse, UnisonConfigError};
 
     use super::*;
     use toposort::Toposort;
