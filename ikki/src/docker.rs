@@ -189,9 +189,6 @@ pub async fn run(
     image_name: String,
     service: Service,
 ) -> Result<String, DockerError> {
-    debug!("starting {}...", container_name);
-    println!("Creating container `{}`...", container_name);
-
     let options = CreateContainerOptions {
         name: container_name.to_string(),
     };
@@ -199,12 +196,9 @@ pub async fn run(
     let config = create_container_config(&container_name, &image_name, service);
 
     let id = docker.create_container(Some(options), config).await?.id;
-    println!("Created container `{}`", container_name);
-
-    println!("Starting container `{}`...", container_name);
     docker.start_container::<String>(&id, None).await?;
-    println!("Started container `{}` ({})", container_name, id);
 
+    println!("Started container {} ({})", container_name, id);
     debug!("started container {} ({})", container_name, id);
 
     Ok(id)
