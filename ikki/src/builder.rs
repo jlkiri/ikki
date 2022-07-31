@@ -1,3 +1,5 @@
+use std::ops::Mul;
+
 use bollard::Docker;
 use futures::prelude::*;
 use futures::stream::FuturesUnordered;
@@ -55,26 +57,15 @@ struct Builder {
     config: UnisonConfig,
 }
 
-fn default_progress_bar() -> ProgressBar {
-    let style =
-        ProgressStyle::with_template("{msg:20!} [{bar:60.cyan/blue}] {bytes}/{total_bytes}")
-            .expect("failed to parse progress bar style template")
-            .progress_chars("##-");
-    let pb = ProgressBar::new(0);
-    pb.set_style(style);
-    pb
-}
-
 async fn create_docker_job(
     docker: Docker,
     image: Image,
-    pb: ProgressBar,
+    mp: MultiProgress,
 ) -> Result<(), DockerError> {
     if let Some(_pull) = &image.pull {
-        docker::pull_image(docker, image, pb).await?;
+        docker::pull_image(docker, image, mp).await?;
     } else if let Some(_path) = &image.path {
-        let pb = ProgressBar::new(0);
-        docker::build_image(docker, image, pb).await?;
+        docker::build_image(docker, image, mp).await?;
     }
     Ok(())
 }
@@ -164,8 +155,7 @@ impl Builder {
                     .find_image(&image_name)
                     .cloned()
                     .ok_or(UnisonError::NoSuchImage(image_name))?;
-                let pb = mp.add(default_progress_bar());
-                let job = create_docker_job(self.client.clone(), image, pb);
+                let job = create_docker_job(self.client.clone(), image, mp.clone());
                 queue.push(job);
             }
 

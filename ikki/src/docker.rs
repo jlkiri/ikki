@@ -1,4 +1,4 @@
-use crate::docker_config::*;
+use crate::{console, docker_config::*};
 use bollard::{
     container::CreateContainerOptions,
     image::{BuildImageOptions, CreateImageOptions},
@@ -7,7 +7,7 @@ use bollard::{
 use futures::StreamExt;
 use futures_util::TryStreamExt;
 use ikki_config::*;
-use indicatif::ProgressBar;
+use indicatif::{MultiProgress, ProgressBar};
 use std::{
     collections::{HashMap, HashSet},
     io::{self, Write},
@@ -29,10 +29,15 @@ pub enum DockerError {
     DockerDaemonError(#[from] bollard::errors::Error),
 }
 
-pub async fn build_image(docker: Docker, image: Image, pb: ProgressBar) -> Result<(), DockerError> {
+pub async fn build_image(
+    docker: Docker,
+    image: Image,
+    mp: MultiProgress,
+) -> Result<(), DockerError> {
     debug!("building {}...", image.name);
 
-    println!("Building image `{}`...", image.name);
+    let pb = mp.add(console::default_build_progress_bar());
+    pb.set_message(image.name.clone());
 
     let build_opts = build_options(&image)?;
 
@@ -63,31 +68,61 @@ pub async fn build_image(docker: Docker, image: Image, pb: ProgressBar) -> Resul
 
     let mut build_stream = docker.build_image(build_options, None, Some(tar.into()));
 
-    let mut curr: i64 = 0;
+    let mut progresses = HashMap::new();
+
+    let mut dl_pb: Option<ProgressBar> = None;
 
     while let Some(info) = build_stream.next().await {
         let info = info?;
 
-        let detail = info
-            .progress_detail
-            .and_then(|det| match (det.total, det.current) {
-                (Some(total), Some(current)) => Some((total, current)),
-                _ => None,
-            });
+        if let Some(status) = info.status {
+            if status == STATUS_DOWNLOADING {
+                if dl_pb.is_none() {
+                    dl_pb = Some(mp.add(console::default_pull_progress_bar()));
+                }
 
-        if let Some((total, current)) = detail {
-            pb.set_length(total as u64);
-            pb.inc((current - curr) as u64);
-            curr = current;
+                let detail = info
+                    .progress_detail
+                    .and_then(|det| match (det.total, det.current) {
+                        (Some(total), Some(current)) => Some((total, current)),
+                        _ => None,
+                    });
+
+                let id = info.id.unwrap_or_default();
+
+                dl_pb
+                    .as_ref()
+                    .unwrap()
+                    .set_message(format!("Pulling missing layers..."));
+
+                if let Some((total, current)) = detail {
+                    let e = progresses.entry(id).or_insert((total, current));
+                    *e = (e.0, current);
+
+                    let all_total: i64 = progresses.values().map(|(t, _)| t).sum();
+                    let all_current: i64 = progresses.values().map(|(_, c)| c).sum();
+                    dl_pb.as_ref().unwrap().set_length(all_total as u64);
+                    dl_pb.as_ref().unwrap().set_position(all_current as u64);
+                }
+            }
         }
+
+        pb.tick();
     }
 
-    println!("Finished building `{}`", image.name);
+    if let Some(dl_pb) = dl_pb {
+        dl_pb.finish_and_clear();
+    }
+    pb.finish_and_clear();
 
     Ok(())
 }
 
-pub async fn pull_image(docker: Docker, image: Image, pb: ProgressBar) -> Result<(), DockerError> {
+pub async fn pull_image(
+    docker: Docker,
+    image: Image,
+    mp: MultiProgress,
+) -> Result<(), DockerError> {
     let name = image.pull.unwrap_or("<unknown>".into());
     debug!("pulling {}...", name);
 
@@ -100,6 +135,8 @@ pub async fn pull_image(docker: Docker, image: Image, pb: ProgressBar) -> Result
         println!("Image `{}` already exists and/or is up-to-date", name);
         return Ok(());
     }
+
+    let pb = mp.add(console::default_pull_progress_bar());
 
     let mut pull_stream = docker.create_image(
         Some(CreateImageOptions {
