@@ -50,3 +50,51 @@ SUBCOMMANDS:
 ```
 cargo install ikki
 ```
+
+## Example config
+
+```kdl
+images {
+    image "protobuf" path="./protobuf" output="./output/protobuf" {
+        build-arg "PROTOBUF_VERSION" "1.28.0"
+        build-arg "PROTOC_VERSION" "21.4"
+    }
+
+    image "redis" pull="redis:latest" {
+        service {
+            ports "6379:6379"
+        }
+    }
+    
+    image "db" pull="postgres:latest" {
+        service {
+            env "POSTGRES_PASSWORD" "example"
+            env "POSTGRES_USER" "test"
+
+            ports "5432:5432"
+        }
+    }
+
+    image "api" path="./api" {
+        service {
+            mount type="volume" src="cache" dest="/cache"
+            mount type="bind" src="./api/config" dest="/config"
+
+            ports "3000:3000"
+        }
+    }
+
+    image "cli-rust" path="./cli"
+}
+
+dependencies {
+    api {
+        protobuf
+        redis
+        db
+    }
+    cli-rust {
+        protobuf
+    }
+}
+```
