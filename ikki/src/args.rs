@@ -3,20 +3,20 @@ use std::path::PathBuf;
 
 const DEFAULT_CONFIG_FILE: &str = "ikki.kdl";
 
-/// Unison orchestrates Docker image builds and container launches
+/// Ikki orchestrates Docker image builds and container launches
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 #[clap(propagate_version = true)]
-pub struct Unison {
-    /// Unison subcommand
+pub struct Ikki {
+    /// Ikki subcommand
     #[clap(subcommand)]
     pub command: Command,
-    /// Path to Unison configuration file
+    /// Path to Ikki configuration file
     #[clap(long, short, value_parser, default_value = DEFAULT_CONFIG_FILE)]
     pub file: PathBuf,
 }
 
-/// Unison subcommand
+/// Ikki subcommand
 #[derive(Debug, Subcommand)]
 pub enum Command {
     Build(BuildCmdArgs),

@@ -1,7 +1,4 @@
-
-
 use std::time::Duration;
-
 
 use futures::prelude::*;
 use notify::DebouncedEvent;
@@ -14,12 +11,11 @@ use tokio::task;
 use tokio::task::JoinHandle;
 use tracing::debug;
 
-
 use crate::supervisor::Event;
 use crate::supervisor::EventSender;
 
 use crate::supervisor::ImageSourceLocations;
-use crate::UnisonError;
+use crate::IkkiError;
 
 struct FsEventListener {
     shutdown: oneshot::Receiver<()>,
@@ -43,7 +39,7 @@ impl FsEventListener {
 
 pub struct FsEventListenerHandle {
     sender: oneshot::Sender<()>,
-    handle: JoinHandle<Result<(), UnisonError>>,
+    handle: JoinHandle<Result<(), IkkiError>>,
 }
 
 impl FsEventListenerHandle {
@@ -62,19 +58,19 @@ impl FsEventListenerHandle {
     }
 }
 
-async fn run_fs_event_listener(mut listener: FsEventListener) -> Result<(), UnisonError> {
+async fn run_fs_event_listener(mut listener: FsEventListener) -> Result<(), IkkiError> {
     let (fs_event_sender, mut fs_event_receiver) = mpsc::channel(10);
     let (watcher_sender, blocking_fs_receiver) = std::sync::mpsc::channel();
 
     debug!("starting FS event watcher");
 
     let mut watcher =
-        watcher(watcher_sender, Duration::from_secs(2)).map_err(|_| UnisonError::FileWatcher)?;
+        watcher(watcher_sender, Duration::from_secs(2)).map_err(|_| IkkiError::FileWatcher)?;
 
     for path in listener.image_source_locations.keys() {
         watcher
             .watch(path, RecursiveMode::Recursive)
-            .map_err(|_| UnisonError::FileWatcher)?;
+            .map_err(|_| IkkiError::FileWatcher)?;
     }
 
     let fs_watcher =
@@ -97,7 +93,7 @@ async fn run_fs_event_listener(mut listener: FsEventListener) -> Result<(), Unis
                             let canonical_path = path.parent().and_then(|p| p.canonicalize().ok()).unwrap();
                             if let Some(image_name) = listener.image_source_locations.get(&canonical_path) {
                                 listener.event_sender.send(Event::SourceChanged(image_name.clone())).await
-                                    .map_err(|_| UnisonError::FileWatcher)?
+                                    .map_err(|_| IkkiError::FileWatcher)?
                             }
                         }
                         _ => ()
@@ -110,12 +106,12 @@ async fn run_fs_event_listener(mut listener: FsEventListener) -> Result<(), Unis
 fn watch_file_changes(
     receiver: std::sync::mpsc::Receiver<DebouncedEvent>,
     sender: mpsc::Sender<DebouncedEvent>,
-) -> Result<(), UnisonError> {
+) -> Result<(), IkkiError> {
     while let Ok(event) = receiver.recv() {
         debug!(?event, "detected filesystem change");
         sender
             .blocking_send(event)
-            .map_err(|_| UnisonError::FileWatcher)?;
+            .map_err(|_| IkkiError::FileWatcher)?;
     }
 
     Ok(())

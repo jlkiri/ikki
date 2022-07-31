@@ -1,5 +1,5 @@
 use bollard::Docker;
-use ikki_config::UnisonConfig;
+use ikki_config::IkkiConfig;
 use miette::IntoDiagnostic;
 use tokio::signal;
 use tracing::debug;
@@ -11,7 +11,7 @@ use crate::{
     supervisor::{ImageSourceLocations, Mode, SupervisorHandle},
 };
 
-pub async fn explain(config: UnisonConfig) -> miette::Result<()> {
+pub async fn explain(config: IkkiConfig) -> miette::Result<()> {
     let build_options = config
         .images()
         .iter()
@@ -49,7 +49,7 @@ pub async fn explain(config: UnisonConfig) -> miette::Result<()> {
     Ok(())
 }
 
-pub async fn up(config: UnisonConfig) -> miette::Result<()> {
+pub async fn up(config: IkkiConfig) -> miette::Result<()> {
     let docker = Docker::connect_with_local_defaults().into_diagnostic()?;
 
     debug!("connected to docker daemon");

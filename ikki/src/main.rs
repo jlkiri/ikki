@@ -24,15 +24,15 @@ mod supervisor;
 type Result<T> = miette::Result<T>;
 
 #[derive(Debug, Error, Diagnostic)]
-pub enum UnisonError {
+pub enum IkkiError {
     #[error("Image does not exist: {0}")]
     NoSuchImage(String),
     #[error("FS change watcher failed")]
     FileWatcher,
-    #[error("No Unison configuration file found at: {0}")]
+    #[error("No Ikki configuration file found at: {0}")]
     NoConfig(String),
-    #[error("Unison configuration error")]
-    Config(#[from] ikki_config::UnisonConfigError),
+    #[error("Ikki configuration error")]
+    Config(#[from] ikki_config::IkkiConfigError),
     #[error("Docker build failed")]
     Build(#[from] DockerError),
     #[error("Unexpected error: {0}")]
@@ -49,15 +49,15 @@ fn setup() {
         .init();
 }
 
-async fn read_config<P>(file: P) -> std::result::Result<UnisonConfig, UnisonError>
+async fn read_config<P>(file: P) -> std::result::Result<IkkiConfig, IkkiError>
 where
     P: AsRef<Path>,
 {
     let path = file.as_ref().to_string_lossy();
     let input = fs::read_to_string(&file)
         .await
-        .or(Err(UnisonError::NoConfig(path.to_string())))?;
-    let config: UnisonConfig = ikki_config::parse(&path, &input)?;
+        .or(Err(IkkiError::NoConfig(path.to_string())))?;
+    let config: IkkiConfig = ikki_config::parse(&path, &input)?;
     Ok(config)
 }
 
@@ -67,7 +67,7 @@ async fn main() -> Result<()> {
 
     debug!("initialized tracing_subscriber");
 
-    let args = Unison::parse();
+    let args = Ikki::parse();
     let config = read_config(args.file.clone()).await?;
 
     debug!("loaded configuration from {}", args.file.display());
