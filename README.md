@@ -4,6 +4,8 @@
 
 Ikki is a tool for defining and running multi-container Docker applications. It is similar to Docker Compose but comes with some differences.
 
+<img src="https://user-images.githubusercontent.com/38713361/182031379-fc284328-430f-4dd7-9599-0c078208ed49.gif" alt="ikki-demo" width="700"/>
+
 ## Goals
 
 * Possible to make one image build dependent on another
