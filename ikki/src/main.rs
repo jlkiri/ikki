@@ -14,6 +14,7 @@ use tracing_subscriber::EnvFilter;
 mod args;
 mod builder;
 mod cmd;
+mod console;
 mod docker;
 mod docker_config;
 mod explain;

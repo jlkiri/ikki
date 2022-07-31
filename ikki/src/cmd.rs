@@ -54,6 +54,14 @@ pub async fn up(config: UnisonConfig) -> miette::Result<()> {
 
     debug!("connected to docker daemon");
 
+    println!("Calculated image build order:");
+    println!();
+
+    for (i, chunk) in config.build_order().iter().enumerate() {
+        println!("[{}] {}", i + 1, chunk.join(", "));
+    }
+    println!();
+
     let image_source_locations: ImageSourceLocations = config
         .images()
         .iter()

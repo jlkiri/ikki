@@ -1,7 +1,10 @@
+use std::ops::Mul;
+
 use bollard::Docker;
 use futures::prelude::*;
 use futures::stream::FuturesUnordered;
 use ikki_config::{BuildOrder, Image, UnisonConfig};
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use tokio::sync::oneshot::Sender;
 use tokio::sync::{mpsc, oneshot};
 use tokio::task;
@@ -54,11 +57,15 @@ struct Builder {
     config: UnisonConfig,
 }
 
-async fn create_docker_job(docker: Docker, image: Image) -> Result<(), DockerError> {
+async fn create_docker_job(
+    docker: Docker,
+    image: Image,
+    mp: MultiProgress,
+) -> Result<(), DockerError> {
     if let Some(_pull) = &image.pull {
-        docker::pull_image(docker, image).await?;
+        docker::pull_image(docker, image, mp).await?;
     } else if let Some(_path) = &image.path {
-        docker::build_image(docker, image).await?;
+        docker::build_image(docker, image, mp).await?;
     }
     Ok(())
 }
@@ -136,6 +143,8 @@ impl Builder {
 
     async fn ordered_build(&self, order: BuildOrder) -> Result<(), UnisonError> {
         debug!("executing build jobs in configured order");
+        let mp = MultiProgress::new();
+
         for chunk in order {
             // Concurrently run builds/pulls in a single chunk because they do not depend on each other.
             let queue = FuturesUnordered::new();
@@ -146,7 +155,7 @@ impl Builder {
                     .find_image(&image_name)
                     .cloned()
                     .ok_or(UnisonError::NoSuchImage(image_name))?;
-                let job = create_docker_job(self.client.clone(), image);
+                let job = create_docker_job(self.client.clone(), image, mp.clone());
                 queue.push(job);
             }
 
@@ -156,6 +165,9 @@ impl Builder {
                 .into_iter()
                 .collect::<Result<Vec<()>, DockerError>>()?;
         }
+
+        mp.clear().expect("failed to clear multiple progress bars");
+
         debug!("all build jobs finished successfully");
         Ok(())
     }

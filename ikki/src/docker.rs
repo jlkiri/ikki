@@ -1,22 +1,23 @@
-use crate::docker_config::*;
+use crate::{console, docker_config::*};
 use bollard::{
     container::CreateContainerOptions,
     image::{BuildImageOptions, CreateImageOptions},
     Docker,
 };
+use futures::StreamExt;
 use futures_util::TryStreamExt;
 use ikki_config::*;
-use std::io::{self, Write};
+use indicatif::{MultiProgress, ProgressBar};
+use std::{
+    collections::{HashMap, HashSet},
+    io::{self, Write},
+};
 use tar::Builder;
 use thiserror::Error;
 use tokio::task;
 use tracing::debug;
 
-fn clear_line() {
-    use crossterm::{cursor::MoveToColumn, execute, terminal::Clear, terminal::ClearType};
-    execute!(io::stdout(), MoveToColumn(0)).expect("Failed to clear line");
-    execute!(io::stdout(), Clear(ClearType::CurrentLine)).expect("Failed to clear line");
-}
+static STATUS_DOWNLOADING: &str = "Downloading";
 
 #[derive(Error, Debug)]
 pub enum DockerError {
@@ -28,10 +29,15 @@ pub enum DockerError {
     DockerDaemonError(#[from] bollard::errors::Error),
 }
 
-pub async fn build_image(docker: Docker, image: Image) -> Result<(), DockerError> {
+pub async fn build_image(
+    docker: Docker,
+    image: Image,
+    mp: MultiProgress,
+) -> Result<(), DockerError> {
     debug!("building {}...", image.name);
 
-    println!("Building image `{}`...", image.name);
+    let pb = mp.add(console::default_build_progress_bar());
+    pb.set_message(image.name.clone());
 
     let build_opts = build_options(&image)?;
 
@@ -60,24 +66,65 @@ pub async fn build_image(docker: Docker, image: Image) -> Result<(), DockerError
         ..Default::default()
     };
 
-    docker
-        .build_image(build_options, None, Some(tar.into()))
-        .try_collect::<Vec<_>>()
-        .await?;
+    let mut build_stream = docker.build_image(build_options, None, Some(tar.into()));
 
-    println!("Finished building `{}`", image.name);
+    let mut progresses = HashMap::new();
+
+    let mut dl_pb: Option<ProgressBar> = None;
+
+    while let Some(info) = build_stream.next().await {
+        let info = info?;
+
+        if let Some(status) = info.status {
+            if status == STATUS_DOWNLOADING {
+                if dl_pb.is_none() {
+                    dl_pb = Some(mp.add(console::default_pull_progress_bar()));
+                }
+
+                let detail = info
+                    .progress_detail
+                    .and_then(|det| match (det.total, det.current) {
+                        (Some(total), Some(current)) => Some((total, current)),
+                        _ => None,
+                    });
+
+                let id = info.id.unwrap_or_default();
+
+                dl_pb
+                    .as_ref()
+                    .unwrap()
+                    .set_message(format!("Pulling missing layers for {}", image.name));
+
+                if let Some((total, current)) = detail {
+                    let e = progresses.entry(id).or_insert((total, current));
+                    *e = (e.0, current);
+
+                    let all_total: i64 = progresses.values().map(|(t, _)| t).sum();
+                    let all_current: i64 = progresses.values().map(|(_, c)| c).sum();
+                    dl_pb.as_ref().unwrap().set_length(all_total as u64);
+                    dl_pb.as_ref().unwrap().set_position(all_current as u64);
+                }
+            }
+        }
+
+        pb.tick();
+    }
+
+    if let Some(dl_pb) = dl_pb {
+        dl_pb.finish_and_clear();
+    }
+    pb.finish_and_clear();
 
     Ok(())
 }
 
-pub async fn pull_image(docker: Docker, image: Image) -> Result<(), DockerError> {
+pub async fn pull_image(
+    docker: Docker,
+    image: Image,
+    mp: MultiProgress,
+) -> Result<(), DockerError> {
     let name = image.pull.unwrap_or("<unknown>".into());
     debug!("pulling {}...", name);
-
-    println!(
-        "Checking if image `{}` needs to be built or pulled from registry...",
-        name
-    );
 
     let image_list = docker.list_images::<String>(None).await?;
     if image_list
@@ -89,24 +136,49 @@ pub async fn pull_image(docker: Docker, image: Image) -> Result<(), DockerError>
         return Ok(());
     }
 
-    println!(
-        "Image `{}` not found locally. Pulling from registry...",
-        name
+    let pb = mp.add(console::default_pull_progress_bar());
+
+    let mut pull_stream = docker.create_image(
+        Some(CreateImageOptions {
+            from_image: name.clone(),
+            ..Default::default()
+        }),
+        None,
+        None,
     );
 
-    docker
-        .create_image(
-            Some(CreateImageOptions {
-                from_image: name.clone(),
-                ..Default::default()
-            }),
-            None,
-            None,
-        )
-        .try_collect::<Vec<_>>()
-        .await?;
+    let mut progresses = HashMap::new();
 
-    println!("Finished pulling `{}` from registry", name);
+    while let Some(info) = pull_stream.next().await {
+        let info = info?;
+
+        if let Some(status) = info.status {
+            if status == STATUS_DOWNLOADING {
+                let detail = info
+                    .progress_detail
+                    .and_then(|det| match (det.total, det.current) {
+                        (Some(total), Some(current)) => Some((total, current)),
+                        _ => None,
+                    });
+
+                let id = info.id.unwrap_or_default();
+
+                pb.set_message(format!("Pulling {}", name));
+
+                if let Some((total, current)) = detail {
+                    let e = progresses.entry(id).or_insert((total, current));
+                    *e = (e.0, current);
+
+                    let all_total: i64 = progresses.values().map(|(t, _)| t).sum();
+                    let all_current: i64 = progresses.values().map(|(_, c)| c).sum();
+                    pb.set_length(all_total as u64);
+                    pb.set_position(all_current as u64);
+                }
+            }
+        }
+    }
+
+    pb.finish_and_clear();
 
     Ok(())
 }
@@ -117,9 +189,6 @@ pub async fn run(
     image_name: String,
     service: Service,
 ) -> Result<String, DockerError> {
-    debug!("starting {}...", container_name);
-    println!("Creating container `{}`...", container_name);
-
     let options = CreateContainerOptions {
         name: container_name.to_string(),
     };
@@ -127,12 +196,9 @@ pub async fn run(
     let config = create_container_config(&container_name, &image_name, service);
 
     let id = docker.create_container(Some(options), config).await?.id;
-    println!("Created container `{}`", container_name);
-
-    println!("Starting container `{}`...", container_name);
     docker.start_container::<String>(&id, None).await?;
-    println!("Started container `{}` ({})", container_name, id);
 
+    println!("Started container {} ({})", container_name, id);
     debug!("started container {} ({})", container_name, id);
 
     Ok(id)
