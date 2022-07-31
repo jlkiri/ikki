@@ -124,6 +124,15 @@ docker run --name db --env POSTGRES_PASSWORD=example --env POSTGRES_USER=test --
 docker run --name api --publish 3000:3000 api
 ```
 
+## Status
+
+**Experimental**
+
+Use at your own risk. The following is the rough TODO list:
+
+- [ ] Reach parity with Docker Compose by recognizing more options and passing them to the Docker daemon
+- [ ] Distinguish build and run dependencies
+
 ## Install
 
 ### From source
