@@ -11,7 +11,7 @@ pub fn default_pull_progress_bar() -> ProgressBar {
 }
 
 pub fn default_build_progress_bar() -> ProgressBar {
-    let spinner_style = ProgressStyle::with_template("{spinner} Building image: {msg}...")
+    let spinner_style = ProgressStyle::with_template("{spinner} Building image: `{msg}`")
         .unwrap()
         .tick_chars("⣾⣽⣻⢿⡿⣟⣯⣷");
     let pb = ProgressBar::new(1024);
