@@ -1,26 +1,26 @@
 use crate::{deps::parse_deps, parse_image_config, Image, ImageConfig};
 use kdl::{KdlDocument, KdlError};
-use toposort::{Toposort};
+use toposort::Toposort;
 
 use thiserror::Error;
 
 pub type BuildOrder = Vec<Vec<String>>;
 
 #[derive(Error, Debug)]
-pub enum UnisonConfigError {
-    #[error("Invalid Unison configuration: {0}")]
+pub enum IkkiConfigError {
+    #[error("Invalid Ikki configuration: {0}")]
     InvalidConfiguration(String),
     #[error("Configuration deserialization failed: {0}")]
     Knuffel(#[from] knuffel::Error),
 }
 
 #[derive(Debug)]
-pub struct UnisonConfig {
+pub struct IkkiConfig {
     image_config: ImageConfig,
     build_order: Vec<Vec<String>>,
 }
 
-impl UnisonConfig {
+impl IkkiConfig {
     pub fn images(&self) -> &Vec<Image> {
         &self.image_config.images.images
     }
@@ -38,14 +38,14 @@ impl UnisonConfig {
     }
 }
 
-pub fn parse(filename: &str, input: &str) -> Result<UnisonConfig, UnisonConfigError> {
+pub fn parse(filename: &str, input: &str) -> Result<IkkiConfig, IkkiConfigError> {
     let doc: KdlDocument = input
         .parse()
-        .map_err(|e: KdlError| UnisonConfigError::InvalidConfiguration(e.to_string()))?;
+        .map_err(|e: KdlError| IkkiConfigError::InvalidConfiguration(e.to_string()))?;
 
     let images = doc
         .get("images")
-        .ok_or(UnisonConfigError::InvalidConfiguration(
+        .ok_or(IkkiConfigError::InvalidConfiguration(
             "missing `images` configuration".to_string(),
         ))?;
 
@@ -61,7 +61,7 @@ pub fn parse(filename: &str, input: &str) -> Result<UnisonConfig, UnisonConfigEr
             vec![image_names]
         });
 
-    Ok(UnisonConfig {
+    Ok(IkkiConfig {
         image_config,
         build_order,
     })

@@ -26,12 +26,12 @@ pub fn parse_deps(dependencies_node: &KdlNode) -> Dag<String> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{parse::parse, UnisonConfigError};
+    use crate::{parse::parse, IkkiConfigError};
 
     use super::*;
     use toposort::Toposort;
 
-    fn parse_deps_from_string(input: &str) -> Result<Dag<String>, UnisonConfigError> {
+    fn parse_deps_from_string(input: &str) -> Result<Dag<String>, IkkiConfigError> {
         let doc: KdlDocument = input.parse().expect("failed to parse");
         let dependencies = doc.get("dependencies").expect("no dependencies");
         Ok(parse_deps(dependencies))

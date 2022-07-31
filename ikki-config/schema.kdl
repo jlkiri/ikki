@@ -1,6 +1,6 @@
 document {
     info {
-        title "Unison configuration schema" lang="en"
+        title "Ikki configuration schema" lang="en"
         author "Kirill Vasiltsov" {
             link "https://github.com/jlkiri"
         }

@@ -3,7 +3,7 @@ use std::ops::Mul;
 use bollard::Docker;
 use futures::prelude::*;
 use futures::stream::FuturesUnordered;
-use ikki_config::{BuildOrder, Image, UnisonConfig};
+use ikki_config::{BuildOrder, IkkiConfig, Image};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use tokio::sync::oneshot::Sender;
 use tokio::sync::{mpsc, oneshot};
@@ -11,26 +11,26 @@ use tokio::task;
 use tracing::debug;
 
 use crate::docker::DockerError;
-use crate::{docker, UnisonError};
+use crate::{docker, IkkiError};
 
 type ImageName = String;
 
 #[derive(Debug)]
 pub enum BuildResult {
     Success,
-    Error(UnisonError),
+    Error(IkkiError),
 }
 
 #[derive(Debug)]
 pub enum RunResult {
     Success(ContainerIds),
-    Error(UnisonError),
+    Error(IkkiError),
 }
 
 #[derive(Debug)]
 pub enum StopResult {
     Success,
-    Error(UnisonError),
+    Error(IkkiError),
 }
 
 type BuildResultSender = oneshot::Sender<BuildResult>;
@@ -54,7 +54,7 @@ pub type CommandSender = mpsc::Sender<Command>;
 struct Builder {
     receiver: CommandReceiver,
     client: Docker,
-    config: UnisonConfig,
+    config: IkkiConfig,
 }
 
 async fn create_docker_job(
@@ -71,7 +71,7 @@ async fn create_docker_job(
 }
 
 impl Builder {
-    fn new(receiver: CommandReceiver, client: Docker, config: UnisonConfig) -> Self {
+    fn new(receiver: CommandReceiver, client: Docker, config: IkkiConfig) -> Self {
         Self {
             receiver,
             client,
@@ -79,7 +79,7 @@ impl Builder {
         }
     }
 
-    fn report_build_result(&self, sender: Sender<BuildResult>, result: Result<(), UnisonError>) {
+    fn report_build_result(&self, sender: Sender<BuildResult>, result: Result<(), IkkiError>) {
         match result {
             Ok(()) => {
                 let _ = sender.send(BuildResult::Success);
@@ -93,7 +93,7 @@ impl Builder {
     fn report_run_result(
         &self,
         sender: Sender<RunResult>,
-        result: Result<ContainerIds, UnisonError>,
+        result: Result<ContainerIds, IkkiError>,
     ) {
         match result {
             Ok(ids) => {
@@ -105,7 +105,7 @@ impl Builder {
         }
     }
 
-    fn report_stop_result(&self, sender: Sender<StopResult>, result: Result<(), UnisonError>) {
+    fn report_stop_result(&self, sender: Sender<StopResult>, result: Result<(), IkkiError>) {
         match result {
             Ok(()) => {
                 let _ = sender.send(StopResult::Success);
@@ -141,7 +141,7 @@ impl Builder {
         }
     }
 
-    async fn ordered_build(&self, order: BuildOrder) -> Result<(), UnisonError> {
+    async fn ordered_build(&self, order: BuildOrder) -> Result<(), IkkiError> {
         debug!("executing build jobs in configured order");
         let mp = MultiProgress::new();
 
@@ -154,7 +154,7 @@ impl Builder {
                     .config
                     .find_image(&image_name)
                     .cloned()
-                    .ok_or(UnisonError::NoSuchImage(image_name))?;
+                    .ok_or(IkkiError::NoSuchImage(image_name))?;
                 let job = create_docker_job(self.client.clone(), image, mp.clone());
                 queue.push(job);
             }
@@ -172,7 +172,7 @@ impl Builder {
         Ok(())
     }
 
-    async fn ordered_run(&self, order: BuildOrder) -> Result<ContainerIds, UnisonError> {
+    async fn ordered_run(&self, order: BuildOrder) -> Result<ContainerIds, IkkiError> {
         debug!("executing run jobs in configured order");
         let mut container_ids = vec![];
 
@@ -185,7 +185,7 @@ impl Builder {
                     .config
                     .find_image(&image_name)
                     .cloned()
-                    .ok_or(UnisonError::NoSuchImage(image_name))?;
+                    .ok_or(IkkiError::NoSuchImage(image_name))?;
                 if let Some(service) = image.service {
                     let image_name = if let Some(name) = image.pull {
                         name
@@ -226,25 +226,25 @@ impl Builder {
         dependent_images
     }
 
-    async fn build_dependers(&self, name: &str) -> Result<(), UnisonError> {
+    async fn build_dependers(&self, name: &str) -> Result<(), IkkiError> {
         let dependers = self.dependent_images_of(name);
         self.ordered_build(dependers).await
     }
 
-    async fn full_build(&self) -> Result<(), UnisonError> {
+    async fn full_build(&self) -> Result<(), IkkiError> {
         self.ordered_build(self.config.build_order()).await
     }
 
-    async fn run_dependers(&self, name: &str) -> Result<ContainerIds, UnisonError> {
+    async fn run_dependers(&self, name: &str) -> Result<ContainerIds, IkkiError> {
         let dependers = self.dependent_images_of(name);
         self.ordered_run(dependers).await
     }
 
-    async fn full_run(&self) -> Result<ContainerIds, UnisonError> {
+    async fn full_run(&self) -> Result<ContainerIds, IkkiError> {
         self.ordered_run(self.config.build_order()).await
     }
 
-    async fn stop_all(&self, ids: ContainerIds) -> Result<(), UnisonError> {
+    async fn stop_all(&self, ids: ContainerIds) -> Result<(), IkkiError> {
         for id in ids {
             docker::remove_container(self.client.clone(), &id).await?;
         }
@@ -259,7 +259,7 @@ pub struct BuilderHandle {
 }
 
 impl BuilderHandle {
-    pub fn new(client: Docker, config: UnisonConfig) -> Self {
+    pub fn new(client: Docker, config: IkkiConfig) -> Self {
         debug!("setup builder actor");
         let (sender, rx) = mpsc::channel::<Command>(50);
         let builder = Builder::new(rx, client, config);
@@ -271,27 +271,27 @@ impl BuilderHandle {
         }
     }
 
-    pub async fn run(&self, name: String) -> Result<(), UnisonError> {
+    pub async fn run(&self, name: String) -> Result<(), IkkiError> {
         debug!("builder received run request");
         let (response_tx, response_rx) = oneshot::channel();
         let _ = self.sender.send(Command::Run((name, response_tx))).await;
         let run_result = response_rx.await;
         debug!(?run_result, "run result");
         match run_result {
-            Err(e) => Err(UnisonError::Other(e.to_string())),
+            Err(e) => Err(IkkiError::Other(e.to_string())),
             Ok(RunResult::Error(e)) => Err(e),
             _ => Ok(()),
         }
     }
 
-    pub async fn run_all(&mut self) -> Result<(), UnisonError> {
+    pub async fn run_all(&mut self) -> Result<(), IkkiError> {
         debug!("builder received full run request");
         let (response_tx, response_rx) = oneshot::channel();
         let _ = self.sender.send(Command::RunAll(response_tx)).await;
         let run_result = response_rx.await;
         debug!(?run_result, "run all result");
         match run_result {
-            Err(e) => Err(UnisonError::Other(e.to_string())),
+            Err(e) => Err(IkkiError::Other(e.to_string())),
             Ok(RunResult::Error(e)) => Err(e),
             Ok(RunResult::Success(ids)) => {
                 self.ids = ids;
@@ -300,33 +300,33 @@ impl BuilderHandle {
         }
     }
 
-    pub async fn build(&self, name: String) -> Result<(), UnisonError> {
+    pub async fn build(&self, name: String) -> Result<(), IkkiError> {
         debug!("builder received build request");
         let (response_tx, response_rx) = oneshot::channel();
         let _ = self.sender.send(Command::Build((name, response_tx))).await;
         let build_result = response_rx.await;
         debug!(?build_result, "build result");
         match build_result {
-            Err(e) => Err(UnisonError::Other(e.to_string())),
+            Err(e) => Err(IkkiError::Other(e.to_string())),
             Ok(BuildResult::Error(e)) => Err(e),
             _ => Ok(()),
         }
     }
 
-    pub async fn build_all(&self) -> Result<(), UnisonError> {
+    pub async fn build_all(&self) -> Result<(), IkkiError> {
         debug!("builder received full build request");
         let (response_tx, response_rx) = oneshot::channel();
         let _ = self.sender.send(Command::BuildAll(response_tx)).await;
         let result = response_rx.await;
         debug!(?result, "build all result");
         match result {
-            Err(e) => Err(UnisonError::Other(e.to_string())),
+            Err(e) => Err(IkkiError::Other(e.to_string())),
             Ok(BuildResult::Error(e)) => Err(e),
             _ => Ok(()),
         }
     }
 
-    pub async fn stop_all(&self) -> Result<(), UnisonError> {
+    pub async fn stop_all(&self) -> Result<(), IkkiError> {
         debug!("builder received full stop request");
         println!("Stopping and removing all running containers...");
         let (response_tx, response_rx) = oneshot::channel();
@@ -337,7 +337,7 @@ impl BuilderHandle {
         let result = response_rx.await;
         debug!(?result, "stop all result");
         match result {
-            Err(e) => Err(UnisonError::Other(e.to_string())),
+            Err(e) => Err(IkkiError::Other(e.to_string())),
             Ok(StopResult::Error(e)) => Err(e),
             _ => {
                 println!("Successfully stopped and removed all running containers");

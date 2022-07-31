@@ -1,15 +1,13 @@
-
-
 use std::collections::HashMap;
-use std::path::{PathBuf};
+use std::path::PathBuf;
 use tokio::sync::mpsc;
 use tokio::task;
 use tokio::task::JoinHandle;
 use tracing::debug;
 
-use crate::builder::{BuilderHandle};
+use crate::builder::BuilderHandle;
 use crate::listeners::FsEventListenerHandle;
-use crate::UnisonError;
+use crate::IkkiError;
 
 type ImageName = String;
 pub type ImageSourceLocations = HashMap<PathBuf, ImageName>;
@@ -73,7 +71,7 @@ impl SupervisorHandle {
         }
     }
 
-    pub async fn shutdown(self) -> Result<(), UnisonError> {
+    pub async fn shutdown(self) -> Result<(), IkkiError> {
         let _ = self.sender.send(Event::Shutdown).await;
 
         drop(self.sender);
@@ -84,7 +82,7 @@ impl SupervisorHandle {
         debug!("shutting down supervisor loop...");
         self.handle
             .await
-            .map_err(|e| UnisonError::Other(e.to_string()))?;
+            .map_err(|e| IkkiError::Other(e.to_string()))?;
         Ok(())
     }
 }
@@ -94,17 +92,17 @@ async fn run_supervisor(mut supervisor: Supervisor, mode: Mode) {
         match msg {
             Event::Shutdown => {
                 if let Err(e) = supervisor.builder_handle.stop_all().await {
-                    println!("Unison error: {}", e)
+                    println!("Ikki error: {}", e)
                 }
             }
             Event::SourceChanged(image_name) => {
                 if let Err(e) = supervisor.builder_handle.build(image_name.clone()).await {
-                    println!("Unison error: {}", e)
+                    println!("Ikki error: {}", e)
                 }
 
                 if let Mode::Run = mode {
                     if let Err(e) = supervisor.builder_handle.run(image_name).await {
-                        println!("Unison error: {}", e)
+                        println!("Ikki error: {}", e)
                     }
                 }
             }
