@@ -2,6 +2,7 @@ use bollard::Docker;
 use futures::prelude::*;
 use futures::stream::FuturesUnordered;
 use ikki_config::{BuildOrder, Image, UnisonConfig};
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use tokio::sync::oneshot::Sender;
 use tokio::sync::{mpsc, oneshot};
 use tokio::task;
@@ -54,11 +55,26 @@ struct Builder {
     config: UnisonConfig,
 }
 
-async fn create_docker_job(docker: Docker, image: Image) -> Result<(), DockerError> {
+fn default_progress_bar() -> ProgressBar {
+    let style =
+        ProgressStyle::with_template("{msg:20!} [{bar:60.cyan/blue}] {bytes}/{total_bytes}")
+            .expect("failed to parse progress bar style template")
+            .progress_chars("##-");
+    let pb = ProgressBar::new(0);
+    pb.set_style(style);
+    pb
+}
+
+async fn create_docker_job(
+    docker: Docker,
+    image: Image,
+    pb: ProgressBar,
+) -> Result<(), DockerError> {
     if let Some(_pull) = &image.pull {
-        docker::pull_image(docker, image).await?;
+        docker::pull_image(docker, image, pb).await?;
     } else if let Some(_path) = &image.path {
-        docker::build_image(docker, image).await?;
+        let pb = ProgressBar::new(0);
+        docker::build_image(docker, image, pb).await?;
     }
     Ok(())
 }
@@ -136,6 +152,8 @@ impl Builder {
 
     async fn ordered_build(&self, order: BuildOrder) -> Result<(), UnisonError> {
         debug!("executing build jobs in configured order");
+        let mp = MultiProgress::new();
+
         for chunk in order {
             // Concurrently run builds/pulls in a single chunk because they do not depend on each other.
             let queue = FuturesUnordered::new();
@@ -146,7 +164,8 @@ impl Builder {
                     .find_image(&image_name)
                     .cloned()
                     .ok_or(UnisonError::NoSuchImage(image_name))?;
-                let job = create_docker_job(self.client.clone(), image);
+                let pb = mp.add(default_progress_bar());
+                let job = create_docker_job(self.client.clone(), image, pb);
                 queue.push(job);
             }
 
@@ -156,6 +175,9 @@ impl Builder {
                 .into_iter()
                 .collect::<Result<Vec<()>, DockerError>>()?;
         }
+
+        mp.clear().expect("failed to clear multiple progress bars");
+
         debug!("all build jobs finished successfully");
         Ok(())
     }

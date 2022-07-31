@@ -4,19 +4,20 @@ use bollard::{
     image::{BuildImageOptions, CreateImageOptions},
     Docker,
 };
+use futures::StreamExt;
 use futures_util::TryStreamExt;
 use ikki_config::*;
-use std::io::{self, Write};
+use indicatif::ProgressBar;
+use std::{
+    collections::{HashMap, HashSet},
+    io::{self, Write},
+};
 use tar::Builder;
 use thiserror::Error;
 use tokio::task;
 use tracing::debug;
 
-fn clear_line() {
-    use crossterm::{cursor::MoveToColumn, execute, terminal::Clear, terminal::ClearType};
-    execute!(io::stdout(), MoveToColumn(0)).expect("Failed to clear line");
-    execute!(io::stdout(), Clear(ClearType::CurrentLine)).expect("Failed to clear line");
-}
+static STATUS_DOWNLOADING: &str = "Downloading";
 
 #[derive(Error, Debug)]
 pub enum DockerError {
@@ -28,7 +29,7 @@ pub enum DockerError {
     DockerDaemonError(#[from] bollard::errors::Error),
 }
 
-pub async fn build_image(docker: Docker, image: Image) -> Result<(), DockerError> {
+pub async fn build_image(docker: Docker, image: Image, pb: ProgressBar) -> Result<(), DockerError> {
     debug!("building {}...", image.name);
 
     println!("Building image `{}`...", image.name);
@@ -60,24 +61,35 @@ pub async fn build_image(docker: Docker, image: Image) -> Result<(), DockerError
         ..Default::default()
     };
 
-    docker
-        .build_image(build_options, None, Some(tar.into()))
-        .try_collect::<Vec<_>>()
-        .await?;
+    let mut build_stream = docker.build_image(build_options, None, Some(tar.into()));
+
+    let mut curr: i64 = 0;
+
+    while let Some(info) = build_stream.next().await {
+        let info = info?;
+
+        let detail = info
+            .progress_detail
+            .and_then(|det| match (det.total, det.current) {
+                (Some(total), Some(current)) => Some((total, current)),
+                _ => None,
+            });
+
+        if let Some((total, current)) = detail {
+            pb.set_length(total as u64);
+            pb.inc((current - curr) as u64);
+            curr = current;
+        }
+    }
 
     println!("Finished building `{}`", image.name);
 
     Ok(())
 }
 
-pub async fn pull_image(docker: Docker, image: Image) -> Result<(), DockerError> {
+pub async fn pull_image(docker: Docker, image: Image, pb: ProgressBar) -> Result<(), DockerError> {
     let name = image.pull.unwrap_or("<unknown>".into());
     debug!("pulling {}...", name);
-
-    println!(
-        "Checking if image `{}` needs to be built or pulled from registry...",
-        name
-    );
 
     let image_list = docker.list_images::<String>(None).await?;
     if image_list
@@ -89,24 +101,47 @@ pub async fn pull_image(docker: Docker, image: Image) -> Result<(), DockerError>
         return Ok(());
     }
 
-    println!(
-        "Image `{}` not found locally. Pulling from registry...",
-        name
+    let mut pull_stream = docker.create_image(
+        Some(CreateImageOptions {
+            from_image: name.clone(),
+            ..Default::default()
+        }),
+        None,
+        None,
     );
 
-    docker
-        .create_image(
-            Some(CreateImageOptions {
-                from_image: name.clone(),
-                ..Default::default()
-            }),
-            None,
-            None,
-        )
-        .try_collect::<Vec<_>>()
-        .await?;
+    let mut progresses = HashMap::new();
 
-    println!("Finished pulling `{}` from registry", name);
+    while let Some(info) = pull_stream.next().await {
+        let info = info?;
+
+        if let Some(status) = info.status {
+            if status == STATUS_DOWNLOADING {
+                let detail = info
+                    .progress_detail
+                    .and_then(|det| match (det.total, det.current) {
+                        (Some(total), Some(current)) => Some((total, current)),
+                        _ => None,
+                    });
+
+                let id = info.id.unwrap_or_default();
+
+                pb.set_message(format!("Pulling {}", name));
+
+                if let Some((total, current)) = detail {
+                    let e = progresses.entry(id).or_insert((total, current));
+                    *e = (e.0, current);
+
+                    let all_total: i64 = progresses.values().map(|(t, _)| t).sum();
+                    let all_current: i64 = progresses.values().map(|(_, c)| c).sum();
+                    pb.set_length(all_total as u64);
+                    pb.set_position(all_current as u64);
+                }
+            }
+        }
+    }
+
+    pb.finish_and_clear();
 
     Ok(())
 }
