@@ -93,7 +93,7 @@ pub async fn build_image(
                 dl_pb
                     .as_ref()
                     .unwrap()
-                    .set_message(format!("Pulling missing layers..."));
+                    .set_message(format!("Pulling missing layers for {}", image.name));
 
                 if let Some((total, current)) = detail {
                     let e = progresses.entry(id).or_insert((total, current));
