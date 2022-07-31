@@ -2,7 +2,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 
 pub fn default_pull_progress_bar() -> ProgressBar {
     let style =
-        ProgressStyle::with_template("{wide_msg} [{bar:60.cyan/blue}] {bytes}/{total_bytes}")
+        ProgressStyle::with_template("[{bar:60.cyan/blue}] {bytes}/{total_bytes} {wide_msg}")
             .expect("failed to parse progress bar style template")
             .progress_chars("##-");
     let pb = ProgressBar::new(0);
